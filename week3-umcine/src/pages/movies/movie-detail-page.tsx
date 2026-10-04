@@ -1,6 +1,6 @@
 import { Link, useParams } from "@tanstack/react-router";
 import { movies } from "../../data/movies";
-import { cn } from "../../utils/cn";
+import { BookmarkButton } from "../../components/bookmark-button";
 
 export function MovieDetailPage() {
   const { movieId } = useParams({ from: "/movies/$movieId" });
@@ -52,21 +52,7 @@ export function MovieDetailPage() {
             <div className="flex flex-col gap-3">
               <h2 className="font-semibold text-[#17191E]">{movie.tagline}</h2>
               <p className="text-sm text-[#606774]">{movie.overview}</p>
-              <button
-                className={cn(
-                  "mt-auto inline-flex w-fit items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium",
-                  movie.isBookmarked
-                    ? "border-[#2563EB] bg-[#2563EB] text-white"
-                    : "border-[#E3E6EB] bg-white text-[#17191E]",
-                )}
-              >
-                <img
-                  src={movie.isBookmarked ? "/icons/bookmark.svg" : "/icons/bookmark-outline.svg"}
-                  alt=""
-                  className={cn("h-4 w-4", movie.isBookmarked && "invert")}
-                />
-                북마크하기
-              </button>
+                <BookmarkButton movieId={movie.id} />
             </div>
           </div>
 
