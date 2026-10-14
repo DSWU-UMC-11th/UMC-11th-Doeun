@@ -1,24 +1,54 @@
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { useEffect, useState, type FormEvent } from "react";
-import { movies } from "../../data/movies";
+import { searchMovies } from "../../api/movies/search-movies";
+import type { TmdbMovieListItem } from "../../api/movies/models";
+import { BookmarkButton } from "../../components/bookmark-button";
+import { getTmdbPosterUrl } from "../../utils/movies/tmdb-image";
 
 export function SearchPage() {
-  const { query } = useSearch({ from: "/search" });
+  const { query = "" } = useSearch({ from: "/search" });
   const navigate = useNavigate({ from: "/search" });
-  const [searchText, setSearchText] = useState(query ?? "");
+  const [searchText, setSearchText] = useState(query);
+
+  const [movies, setMovies] = useState<TmdbMovieListItem[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    setSearchText(query ?? "");
+    setSearchText(query);
   }, [query]);
 
-  const normalizedQuery = query?.trim().toLowerCase() ?? "";
-  const searchResults = normalizedQuery
-    ? movies.filter(
-        (movie) =>
-          movie.title.toLowerCase().includes(normalizedQuery) ||
-          movie.originalTitle.toLowerCase().includes(normalizedQuery),
-      )
-    : [];
+  useEffect(() => {
+    let ignore = false;
+    const normalizedQuery = query.trim();
+
+    setMovies([]);
+    setErrorMessage(null);
+
+    if (!normalizedQuery) {
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
+
+    searchMovies({ query: normalizedQuery })
+      .then((response) => {
+        if (!ignore) setMovies(response.results);
+      })
+      .catch(() => {
+        if (!ignore) setErrorMessage("검색 결과를 불러오지 못했어요.");
+      })
+      .finally(() => {
+        if (!ignore) setIsLoading(false);
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [query]);
+
+  const hasQuery = query.trim() !== "";
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -28,7 +58,7 @@ export function SearchPage() {
     });
   }
 
-  if (!normalizedQuery) {
+  if (!hasQuery) {
     return (
       <main className="flex flex-1 flex-col items-center bg-[#F6F7F9] px-[72px] py-[209px]">
         <div className="flex w-[790px] flex-col items-center gap-9">
@@ -96,43 +126,55 @@ export function SearchPage() {
 
       <div className="flex items-center justify-between border-y border-[#E3E6EB] py-4">
         <h2 className="text-lg font-bold text-[#17191E]">'{query}' 검색 결과</h2>
-        <span className="text-xs text-[#969DA8]">영화 {searchResults.length}편</span>
+        <span className="text-xs text-[#969DA8]">영화 {movies.length}편</span>
       </div>
 
-      {searchResults.length === 0 ? (
+      {isLoading && <p className="py-10 text-[#606774]">검색 중...</p>}
+      {errorMessage && <p className="py-10 text-red-500">{errorMessage}</p>}
+
+      {!isLoading && !errorMessage && movies.length === 0 && (
         <p className="py-10 text-[#606774]">검색 결과가 없어요.</p>
-      ) : (
+      )}
+
+      {!isLoading && !errorMessage && movies.length > 0 && (
         <ul className="grid grid-cols-1 sm:grid-cols-2 sm:gap-x-5">
-          {searchResults.map((movie) => (
-            <li key={movie.id} className="flex gap-[18px] py-5">
-              <div className="h-[190px] w-[126px] flex-shrink-0 overflow-hidden rounded-[10px] bg-[#F6F7F9]">
-                <img
-                  src={movie.posterPath}
-                  alt={`${movie.title} 포스터`}
-                  className="h-full w-full object-cover"
-                />
-              </div>
-              <div className="flex flex-1 flex-col gap-2">
-                <h3 className="text-lg font-bold leading-6 text-[#17191E]">
-                  {movie.title}
-                </h3>
-                <div className="flex items-center gap-2 text-xs text-[#969DA8]">
-                  <span>{movie.originalTitle}</span>
-                  <span>{movie.releaseDate}</span>
+          {movies.map((movie) => {
+            const posterUrl = getTmdbPosterUrl(movie.poster_path);
+
+            return (
+              <li key={movie.id} className="flex gap-[18px] py-5">
+                <div className="h-[190px] w-[126px] flex-shrink-0 overflow-hidden rounded-[10px] bg-[#F6F7F9]">
+                  {posterUrl && (
+                    <img
+                      src={posterUrl}
+                      alt={`${movie.title} 포스터`}
+                      className="h-full w-full object-cover"
+                    />
+                  )}
                 </div>
-                <p className="line-clamp-2 text-[12.5px] leading-5 text-[#606774]">
-                  {movie.overview}
-                </p>
-                <Link
-                  to="/movies/$movieId"
-                  params={{ movieId: String(movie.id) }}
-                  className="mt-auto inline-flex w-fit items-center gap-1 text-xs font-extrabold text-[#2563EB]"
-                >
-                  상세 보기 →
-                </Link>
-              </div>
-            </li>
-          ))}
+                <div className="flex flex-1 flex-col gap-2">
+                  <h3 className="text-lg font-bold leading-6 text-[#17191E]">
+                    {movie.title}
+                  </h3>
+                  <div className="flex items-center gap-2 text-xs text-[#969DA8]">
+                    <span>{movie.original_title}</span>
+                    <span>{movie.release_date}</span>
+                  </div>
+                  <p className="line-clamp-2 text-[12.5px] leading-5 text-[#606774]">
+                    {movie.overview}
+                  </p>
+                  <Link
+                    to="/movies/$movieId"
+                    params={{ movieId: String(movie.id) }}
+                    className="mt-auto inline-flex w-fit items-center gap-1 text-xs font-extrabold text-[#2563EB]"
+                  >
+                    상세 보기 →
+                  </Link>
+                  <BookmarkButton movieId={movie.id} />
+                </div>
+              </li>
+            );
+          })}
         </ul>
       )}
     </main>

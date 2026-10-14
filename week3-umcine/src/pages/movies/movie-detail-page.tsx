@@ -1,28 +1,109 @@
 import { Link, useParams } from "@tanstack/react-router";
-import { movies } from "../../data/movies";
-import { cn } from "../../utils/cn";
+import { useEffect, useState } from "react";
+import { getMovieDetail } from "../../api/movies/get-movie-detail";
+import type { TmdbMovieDetail } from "../../api/movies/models";
+import { BookmarkButton } from "../../components/bookmark-button";
+import { getMovieDetailErrorMessage } from "../../utils/movies/get-movie-detail-error-message";
+import {
+  getTmdbBackdropUrl,
+  getTmdbPosterUrl,
+} from "../../utils/movies/tmdb-image";
+
+function isValidMovieId(movieId: number) {
+  return Number.isInteger(movieId) && movieId > 0;
+}
+
+function formatRuntime(runtime: number | null) {
+  if (typeof runtime !== "number" || runtime <= 0) {
+    return "상영 시간 정보가 없어요.";
+  }
+
+  const hours = Math.floor(runtime / 60);
+  const minutes = runtime % 60;
+
+  if (hours === 0) return `${minutes}분`;
+  if (minutes === 0) return `${hours}시간`;
+  return `${hours}시간 ${minutes}분`;
+}
 
 export function MovieDetailPage() {
   const { movieId } = useParams({ from: "/movies/$movieId" });
-  const movie = movies.find((item) => item.id === Number(movieId));
+  const parsedMovieId = Number(movieId);
 
-  if (!movie) {
+  const [movie, setMovie] = useState<TmdbMovieDetail | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    let ignore = false;
+
+    setMovie(null);
+    setErrorMessage(null);
+
+    if (!isValidMovieId(parsedMovieId)) {
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
+
+    getMovieDetail(parsedMovieId)
+      .then((response) => {
+        if (!ignore) setMovie(response);
+      })
+      .catch((error: unknown) => {
+        if (!ignore) setErrorMessage(getMovieDetailErrorMessage(error));
+      })
+      .finally(() => {
+        if (!ignore) setIsLoading(false);
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [parsedMovieId]);
+
+  if (!isValidMovieId(parsedMovieId)) {
     return (
       <main className="flex flex-1 items-center justify-center text-[#606774]">
-        영화를 찾을 수 없어요.
+        올바르지 않은 영화 번호예요.
       </main>
     );
   }
 
+  if (isLoading) {
+    return (
+      <main className="flex flex-1 items-center justify-center text-[#606774]">
+        로딩 중...
+      </main>
+    );
+  }
+
+  if (errorMessage) {
+    return (
+      <main className="flex flex-1 items-center justify-center text-[#606774]">
+        {errorMessage}
+      </main>
+    );
+  }
+
+  if (!movie) return null;
+
+  const backdropUrl = getTmdbBackdropUrl(movie.backdrop_path);
+  const posterUrl = getTmdbPosterUrl(movie.poster_path);
+  const genreText = movie.genres.map((genre) => genre.name).join(", ");
+
   return (
     <main className="flex flex-1 flex-col">
-      <div className="relative h-80 w-full overflow-hidden sm:h-96">
-        <img
-          src={movie.backdropPath}
-          alt=""
-          aria-hidden="true"
-          className="h-full w-full object-cover"
-        />
+      <div className="relative h-80 w-full overflow-hidden bg-[#17191E] sm:h-96">
+        {backdropUrl && (
+          <img
+            src={backdropUrl}
+            alt=""
+            aria-hidden="true"
+            className="h-full w-full object-cover"
+          />
+        )}
         <div className="absolute inset-0 bg-gradient-to-t from-white via-black/10 to-transparent" />
         <div className="absolute inset-x-0 bottom-0 mx-auto w-full max-w-6xl px-8 pb-6">
           <Link
@@ -37,36 +118,30 @@ export function MovieDetailPage() {
       </div>
 
       <div className="mx-auto w-full max-w-6xl px-8 py-6">
-        <p className="text-sm text-[#606774]">{movie.originalTitle}</p>
+        <p className="text-sm text-[#606774]">{movie.original_title}</p>
         <p className="mt-1 text-sm text-[#606774]">
-          {movie.genres.join(" · ")} · {movie.releaseDate} · {movie.runtime}
+          {[genreText, movie.release_date, formatRuntime(movie.runtime)]
+            .filter(Boolean)
+            .join(" · ")}
         </p>
 
         <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
           <div className="flex gap-5 rounded-xl border border-[#E3E6EB] bg-white p-5">
-            <img
-              src={movie.posterPath}
-              alt={`${movie.title} 포스터`}
-              className="h-44 w-32 flex-shrink-0 rounded-lg object-cover"
-            />
-            <div className="flex flex-col gap-3">
-              <h2 className="font-semibold text-[#17191E]">{movie.tagline}</h2>
-              <p className="text-sm text-[#606774]">{movie.overview}</p>
-              <button
-                className={cn(
-                  "mt-auto inline-flex w-fit items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium",
-                  movie.isBookmarked
-                    ? "border-[#2563EB] bg-[#2563EB] text-white"
-                    : "border-[#E3E6EB] bg-white text-[#17191E]",
-                )}
-              >
+            <div className="h-44 w-32 flex-shrink-0 overflow-hidden rounded-lg bg-[#F6F7F9]">
+              {posterUrl && (
                 <img
-                  src={movie.isBookmarked ? "/icons/bookmark.svg" : "/icons/bookmark-outline.svg"}
-                  alt=""
-                  className={cn("h-4 w-4", movie.isBookmarked && "invert")}
+                  src={posterUrl}
+                  alt={`${movie.title} 포스터`}
+                  className="h-full w-full object-cover"
                 />
-                북마크하기
-              </button>
+              )}
+            </div>
+            <div className="flex flex-col gap-3">
+              {movie.tagline && (
+                <h2 className="font-semibold text-[#17191E]">{movie.tagline}</h2>
+              )}
+              <p className="text-sm text-[#606774]">{movie.overview}</p>
+              <BookmarkButton movieId={movie.id} />
             </div>
           </div>
 

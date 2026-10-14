@@ -36,7 +36,12 @@ export function MovieListPage() {
       <h1 className="mb-6 text-3xl font-bold text-[#17191E]">영화 목록</h1>
       {isLoading && <p>로딩 중...</p>}
       {errorMessage && <p className="text-red-500">{errorMessage}</p>}
-      {!isLoading && !errorMessage && <MovieGrid movies={movies} />}
+      {!isLoading && !errorMessage && movies.length === 0 && (
+        <p className="text-[#606774]">표시할 영화가 없어요.</p>
+      )}
+      {!isLoading && !errorMessage && movies.length > 0 && (
+        <MovieGrid movies={movies} />
+      )}
     </main>
   );
 }
