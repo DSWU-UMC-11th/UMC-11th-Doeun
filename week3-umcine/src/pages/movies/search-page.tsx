@@ -1,7 +1,6 @@
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { useEffect, useState, type FormEvent } from "react";
 import { movies } from "../../data/movies";
-import { BookmarkButton } from "../../components/bookmark-button";
 
 export function SearchPage() {
   const { query } = useSearch({ from: "/search" });
@@ -29,7 +28,6 @@ export function SearchPage() {
     });
   }
 
-  // 검색 전: 빈 상태 화면
   if (!normalizedQuery) {
     return (
       <main className="flex flex-1 flex-col items-center bg-[#F6F7F9] px-[72px] py-[209px]">
@@ -61,7 +59,6 @@ export function SearchPage() {
     );
   }
 
-  // 검색 후: 결과 화면
   return (
     <main className="flex-1 bg-[#F6F7F9] px-20 py-6">
       <div className="mb-4 flex flex-col gap-[17px]">
@@ -133,7 +130,6 @@ export function SearchPage() {
                 >
                   상세 보기 →
                 </Link>
-                <BookmarkButton movieId={movie.id} /> 
               </div>
             </li>
           ))}
